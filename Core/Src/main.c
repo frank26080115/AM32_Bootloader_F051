@@ -2,8 +2,6 @@
 
 #define BOOTLOADER_VERSION 10
 
-#define USE_PA2
-
 /* Includes ------------------------------------------------------------------*/
 #include <stdbool.h>
 #include "main.h"
@@ -13,9 +11,9 @@
 #include <string.h>
 #include "bootloader.h"
 
-#define STM32_FLASH_START 0x08000000
-#define FIRMWARE_RELATIVE_START 0x1000
-#define EEPROM_RELATIVE_START 0x7c00
+#define STM32_FLASH_START          0x08000000
+#define FIRMWARE_RELATIVE_START    0x1000
+#define EEPROM_RELATIVE_START      0x7C00
 
 uint8_t __attribute__ ((section(".bootloader_info"))) bootloader_version = BOOTLOADER_VERSION;
 
@@ -23,8 +21,8 @@ typedef void (*pFunction)(void);
 
 #define APPLICATION_ADDRESS     (uint32_t)(STM32_FLASH_START + FIRMWARE_RELATIVE_START) // 4k
 
-#define EEPROM_START_ADD         (uint32_t)(STM32_FLASH_START + EEPROM_RELATIVE_START)
-#define FLASH_END_ADD           (uint32_t)(STM32_FLASH_START + 0x7FFF)               // 32 k
+#define EEPROM_START_ADD        (uint32_t)(STM32_FLASH_START + EEPROM_RELATIVE_START)
+#define FLASH_END_ADD           (uint32_t)(STM32_FLASH_START + 0x7FFF)                  // 32 k
 
 
 #define CMD_RUN             0x00
@@ -43,17 +41,17 @@ typedef void (*pFunction)(void);
 
 
 #ifdef USE_PA2
-#define input_pin     LL_GPIO_PIN_2
-#define input_port       GPIOA
-#define PIN_NUMBER       2
-#define PORT_LETTER      0
+#define input_pin       LL_GPIO_PIN_2
+#define input_port      GPIOA
+#define PIN_NUMBER      2
+#define PORT_LETTER     0
 #endif
 
 #ifdef USE_PB4
 #define input_pin       LL_GPIO_PIN_4
-#define input_port        GPIOB
-#define PIN_NUMBER        4
-#define PORT_LETTER       1
+#define input_port      GPIOB
+#define PIN_NUMBER      4
+#define PORT_LETTER     1
 #endif
 
 uint16_t low_pin_count = 0;
@@ -68,14 +66,11 @@ char eeprom_req = 0;
 int received;
 uint8_t port_letter;
 
-
-
 uint8_t pin_code = PORT_LETTER << 4 | PIN_NUMBER;
 uint8_t deviceInfo[9] = {0x34,0x37,0x31,0x00,0x1f,0x06,0x06,0x01,0x30};      // stm32 device info
 
-//uint8_t deviceInfo[9] = {0x34,0x37,0x31,0x64,0xf3,0x90,0x06,0x01, 0x30};       // silabs device id
+//uint8_t deviceInfo[9] = {0x34,0x37,0x31,0x64,0xf3,0x90,0x06,0x01, 0x30};     // silabs device id
 //uint8_t deviceInfo[9] = {0x34,0x37,0x31,0x64,0xe8,0xb2,0x06,0x01, 0x30};     // blheli_s identifier
-
 
 size_t str_len;
 char connected = 0;
@@ -86,8 +81,8 @@ uint32_t address;
 int tick = 0;
 
 typedef union __attribute__ ((packed)) {
-    uint8_t bytes[2];
-    uint16_t word;
+	uint8_t bytes[2];
+	uint16_t word;
 } uint8_16_u;
 uint16_t len;
 uint8_t received_crc_low_byte;
@@ -115,20 +110,17 @@ void sendString(uint8_t data[], int len);
 void recieveBuffer();
 
 #define BAUDRATE              19200
-#define BITTIME          1000000/BAUDRATE
-#define HALFBITTIME       500000/BAUDRATE
-
-
+#define BITTIME               (1000000/BAUDRATE)
+#define HALFBITTIME           (500000/BAUDRATE)
 
 void delayMicroseconds(uint32_t micros){
 	TIM2->CNT = 0;
 	while (TIM2->CNT < micros){
-
+		// do nothing
 	}
 }
 
 void jump(){
-
 	__disable_irq();
 	JumpAddress = *(__IO uint32_t*) (APPLICATION_ADDRESS + 4);
 	uint8_t value = *(uint8_t*)(EEPROM_START_ADD);
@@ -139,51 +131,47 @@ void jump(){
 		return;
 	}
 #endif
-    JumpToApplication = (pFunction) JumpAddress;
-  __set_MSP(*(__IO uint32_t*) APPLICATION_ADDRESS);
-   JumpToApplication();
-
+	JumpToApplication = (pFunction) JumpAddress;
+	__set_MSP(*(__IO uint32_t*) APPLICATION_ADDRESS);
+	JumpToApplication();
 }
-
-
 
 void makeCrc(uint8_t* pBuff, uint16_t length){
 	static uint8_16_u CRC_16;
-		CRC_16.word=0;
+	CRC_16.word=0;
 
-		for(int i = 0; i < length; i++) {
+	for(int i = 0; i < length; i++) {
 
 
-		     uint8_t xb = pBuff[i];
-		     for (uint8_t j = 0; j < 8; j++)
-		     {
-		         if (((xb & 0x01) ^ (CRC_16.word & 0x0001)) !=0 ) {
-		             CRC_16.word = CRC_16.word >> 1;
-		             CRC_16.word = CRC_16.word ^ 0xA001;
-		         } else {
-		             CRC_16.word = CRC_16.word >> 1;
-		         }
-		         xb = xb >> 1;
-		     }
+		 uint8_t xb = pBuff[i];
+		 for (uint8_t j = 0; j < 8; j++)
+		 {
+			 if (((xb & 0x01) ^ (CRC_16.word & 0x0001)) !=0 ) {
+				 CRC_16.word = CRC_16.word >> 1;
+				 CRC_16.word = CRC_16.word ^ 0xA001;
+			 } else {
+				 CRC_16.word = CRC_16.word >> 1;
+			 }
+			 xb = xb >> 1;
 		 }
-		calculated_crc_low_byte = CRC_16.bytes[0];
-		calculated_crc_high_byte = CRC_16.bytes[1];
+	 }
+	calculated_crc_low_byte = CRC_16.bytes[0];
+	calculated_crc_high_byte = CRC_16.bytes[1];
 
 }
 
 char checkCrc(uint8_t* pBuff, uint16_t length){
 
-		char received_crc_low_byte2 = pBuff[length];          // one higher than len in buffer
-		char received_crc_high_byte2 = pBuff[length+1];
-		makeCrc(pBuff,length);
+	char received_crc_low_byte2 = pBuff[length];          // one higher than len in buffer
+	char received_crc_high_byte2 = pBuff[length+1];
+	makeCrc(pBuff,length);
 
-		if((calculated_crc_low_byte==received_crc_low_byte2)   && (calculated_crc_high_byte==received_crc_high_byte2)){
-			return 1;
-		}else{
-			return 0;
-		}
+	if((calculated_crc_low_byte==received_crc_low_byte2)   && (calculated_crc_high_byte==received_crc_high_byte2)){
+		return 1;
+	}else{
+		return 0;
+	}
 }
-
 
 void setReceive(){
 	MX_GPIO_INPUT_INIT();
@@ -192,26 +180,26 @@ received = 0;
 }
 
 void setTransmit(){
-LL_GPIO_SetPinMode(input_port, input_pin, LL_GPIO_MODE_OUTPUT);       // set as reciever // clear bits and set receive bits..
+	LL_GPIO_SetPinMode(input_port, input_pin, LL_GPIO_MODE_OUTPUT);       // set as reciever // clear bits and set receive bits..
 }
 
 
 void send_ACK(){
-    setTransmit();
-    serialwriteChar(0x30);             // good ack!
+	setTransmit();
+	serialwriteChar(0x30);             // good ack!
 	setReceive();
 }
 
 void send_BAD_ACK(){
-    setTransmit();
- 		serialwriteChar(0xC1);                // bad command message.
- 		setReceive();
+	setTransmit();
+	serialwriteChar(0xC1);                // bad command message.
+	setReceive();
 }
 
 void send_BAD_CRC_ACK(){
-    setTransmit();
- 		serialwriteChar(0xC2);                // bad command message.
- 		setReceive();
+	setTransmit();
+	serialwriteChar(0xC2);                // bad command message.
+	setReceive();
 }
 
 void sendDeviceInfo(){
@@ -307,7 +295,7 @@ void decodeInput(){
 		}
 
 
-	    // will send Ack 0x30 and read input after transfer out callback
+		// will send Ack 0x30 and read input after transfer out callback
 		invalid_command = 0;
 		address = STM32_FLASH_START + (rxBuffer[2] << 8 | rxBuffer[3]);
 		send_ACK();
@@ -323,17 +311,17 @@ void decodeInput(){
 			return;
 		}
 
-        // no ack with command set buffer;
-       	if(rxBuffer[2] == 0x01){
-       		payload_buffer_size = 256;                          // if nothing in this buffer
-       	}else{
-	        payload_buffer_size = rxBuffer[3];
-        }
-	    incoming_payload_no_command = 1;
-	    address_expected_increment = 256;
-        setReceive();
+		// no ack with command set buffer;
+		if(rxBuffer[2] == 0x01){
+			payload_buffer_size = 256;                          // if nothing in this buffer
+		}else{
+			payload_buffer_size = rxBuffer[3];
+		}
+		incoming_payload_no_command = 1;
+		address_expected_increment = 256;
+		setReceive();
 
-        return;
+		return;
 	}
 
 	if(cmd == CMD_KEEP_ALIVE){
@@ -344,8 +332,8 @@ void decodeInput(){
 			return;
 		}
 
-	   	setTransmit();
-	 	serialwriteChar(0xC1);                // bad command message.
+		setTransmit();
+		serialwriteChar(0xC1);                // bad command message.
 		setReceive();
 
 		return;
@@ -391,89 +379,84 @@ void decodeInput(){
 		setTransmit();
 		uint8_t read_data[out_buffer_size + 3];        // make buffer 3 larger to fit CRC and ACK
 		memset(read_data, 0, sizeof(read_data));
-        //    read_flash((uint8_t*)read_data , address);                 // make sure read_flash reads two less than buffer.
+		//    read_flash((uint8_t*)read_data , address);                 // make sure read_flash reads two less than buffer.
 		read_flash_bin((uint8_t*)read_data , address, out_buffer_size);
 
-        makeCrc(read_data,out_buffer_size);
-        read_data[out_buffer_size] = calculated_crc_low_byte;
-        read_data[out_buffer_size + 1] = calculated_crc_high_byte;
-        read_data[out_buffer_size + 2] = 0x30;
-        sendString(read_data, out_buffer_size+3);
+		makeCrc(read_data,out_buffer_size);
+		read_data[out_buffer_size] = calculated_crc_low_byte;
+		read_data[out_buffer_size + 1] = calculated_crc_high_byte;
+		read_data[out_buffer_size + 2] = 0x30;
+		sendString(read_data, out_buffer_size+3);
 
 		setReceive();
 
 		return;
 	}
 
-    setTransmit();
+	setTransmit();
 
 	serialwriteChar(0xC1);                // bad command message.
 	invalid_command++;
- 	setReceive();
+	setReceive();
 }
 
 
 void serialreadChar()
 {
-rxbyte=0;
-while(!(input_port->IDR & input_pin)){ // wait for rx to go high
-	if(TIM2->CNT > 200000){
-			invalid_command = 101;
+	rxbyte=0;
+	while(!(input_port->IDR & input_pin)){ // wait for rx to go high
+		if(TIM2->CNT > 200000){
+				invalid_command = 101;
+				return;
+		}
+	}
+	while((input_port->IDR & input_pin)){   // wait for it go go low
+		if(TIM2->CNT > 250 && messagereceived){
 			return;
+		}
 	}
-}
-while((input_port->IDR & input_pin)){   // wait for it go go low
-	if(TIM2->CNT > 250 && messagereceived){
-		return;
+
+	delayMicroseconds(HALFBITTIME);//wait to get the center of bit time
+
+	int bits_to_read = 0;
+	while (bits_to_read < 8) {
+		delayMicroseconds(BITTIME);
+		rxbyte = rxbyte | ((( input_port->IDR & input_pin)) >> PIN_NUMBER) << bits_to_read;
+		bits_to_read++;
 	}
+
+	delayMicroseconds(HALFBITTIME); //wait till the stop bit time begins
+	messagereceived = 1;
+	receviedByte = rxbyte;
+	//return rxbyte;
 }
-
-delayMicroseconds(HALFBITTIME);//wait to get the center of bit time
-
-int bits_to_read = 0;
-while (bits_to_read < 8) {
-	delayMicroseconds(BITTIME);
-	rxbyte = rxbyte | ((( input_port->IDR & input_pin)) >> PIN_NUMBER) << bits_to_read;
-  bits_to_read++;
-}
-
-delayMicroseconds(HALFBITTIME); //wait till the stop bit time begins
-messagereceived = 1;
-receviedByte = rxbyte;
-//return rxbyte;
-
-}
-
-
-
 
 void serialwriteChar(char data)
 {
-input_port->BRR = input_pin;; //initiate start bit
-char bits_to_read = 0;
-while (bits_to_read < 8) {
-  delayMicroseconds(BITTIME);
-  if (data & 0x01) {
-	  input_port->BSRR = input_pin;
-  }else{
-	  input_port->BRR = input_pin;
-  }
-  bits_to_read++;
-  data = data >> 1;
-}
+	input_port->BRR = input_pin;; //initiate start bit
+	char bits_to_read = 0;
+	while (bits_to_read < 8) {
+		delayMicroseconds(BITTIME);
+		if (data & 0x01) {
+			input_port->BSRR = input_pin;
+		}else{
+			input_port->BRR = input_pin;
+		}
+		bits_to_read++;
+		data = data >> 1;
+	}
 
-delayMicroseconds(BITTIME);
-input_port->BSRR = input_pin; //write the stop bit
+	delayMicroseconds(BITTIME);
+	input_port->BSRR = input_pin; //write the stop bit
 
-// if more than one byte a delay is needed after stop bit,
-//if its the only one no delay, the sendstring function adds delay after each bit
+	// if more than one byte a delay is needed after stop bit,
+	//if its the only one no delay, the sendstring function adds delay after each bit
 
-//if(cmd == 255 || cmd == 254 || cmd == 1  || incoming_payload_no_command){
-//
-//}else{
-//	delayMicroseconds(BITTIME);
-//}
-
+	//if(cmd == 255 || cmd == 254 || cmd == 1  || incoming_payload_no_command){
+	//
+	//}else{
+	//	delayMicroseconds(BITTIME);
+	//}
 
 }
 
@@ -495,124 +478,114 @@ void recieveBuffer(){
 	memset(rxBuffer, 0, sizeof(rxBuffer));
 
 	for(int i = 0; i < sizeof(rxBuffer); i++){
-	serialreadChar();
+		serialreadChar();
 
-
-	if(incoming_payload_no_command){
-		if(count == payload_buffer_size+2){
-
-			break;
+		if(incoming_payload_no_command){
+			if(count == payload_buffer_size+2){
+				break;
+			}
+			rxBuffer[i] = rxbyte;
+			count++;
+		}else{
+			if(TIM2->CNT > 250){
+				count = 0;
+				break;
+			}else{
+				rxBuffer[i] = rxbyte;
+				if(i == 257){
+					invalid_command+=20;       // needs one hundred to trigger a jump but will be reset on next set address commmand
+				}
+			}
 		}
-		rxBuffer[i] = rxbyte;
-		count++;
-	}else{
-		if(TIM2->CNT > 250){
-		count = 0;
-		break;
-	    }else{
-		rxBuffer[i] = rxbyte;
-		if(i == 257){
-			invalid_command+=20;       // needs one hundred to trigger a jump but will be reset on next set address commmand
-
-		}
 	}
-	}
-	}
-		decodeInput();
+	decodeInput();
 }
 
 void update_EEPROM(){
-read_flash_bin(rxBuffer , EEPROM_START_ADD , 48);
-if(BOOTLOADER_VERSION != rxBuffer[2]){
-	if (rxBuffer[2] == 0xFF || rxBuffer[2] == 0x00){
-		return;
+	read_flash_bin(rxBuffer , EEPROM_START_ADD , 48);
+	if(BOOTLOADER_VERSION != rxBuffer[2]){
+		if (rxBuffer[2] == 0xFF || rxBuffer[2] == 0x00){
+			return;
+		}
+		rxBuffer[2] = BOOTLOADER_VERSION;
+		save_flash_nolib(rxBuffer, 48, EEPROM_START_ADD);
 	}
-	rxBuffer[2] = BOOTLOADER_VERSION;
-save_flash_nolib(rxBuffer, 48, EEPROM_START_ADD);
-}
 }
 
 void checkForSignal(){
 	//uint8_t floating_or_signal= 0;
-	  LL_GPIO_SetPinPull(input_port, input_pin, LL_GPIO_PULL_DOWN);
-	  delayMicroseconds(500);
+	LL_GPIO_SetPinPull(input_port, input_pin, LL_GPIO_PULL_DOWN);
+	delayMicroseconds(500);
 
-	  for(int i = 0 ; i < 500; i ++){
+	for(int i = 0 ; i < 500; i ++){
 		 if( !(input_port->IDR & input_pin)){
-			 low_pin_count++;
-		 }else{
-		//	 high_pin_count++;
-		 }
+			low_pin_count++;
+		}else{
+			// high_pin_count++;
+		}
 
-		  delayMicroseconds(10);
-	  }
-			 if(low_pin_count == 0){
-				 return;           // all high while pin is pulled low, bootloader signal
-			 }
+		delayMicroseconds(10);
+	}
+	if(low_pin_count == 0){
+		 return;           // all high while pin is pulled low, bootloader signal
+	}
 
-		 low_pin_count = 0;
+	low_pin_count = 0;
 
-		 LL_GPIO_SetPinPull(input_port, input_pin, LL_GPIO_PULL_NO);
-		 delayMicroseconds(500);
+	LL_GPIO_SetPinPull(input_port, input_pin, LL_GPIO_PULL_NO);
+	delayMicroseconds(500);
 
-		 for(int i = 0 ; i < 500; i ++){
-		 if( !(input_port->IDR & input_pin)){
-			 low_pin_count++;
-		 }
+	for(int i = 0 ; i < 500; i ++){
+		if( !(input_port->IDR & input_pin)){
+			low_pin_count++;
+		}
 
-		  delayMicroseconds(10);
-	  }
-		 if(low_pin_count == 0){
-			 return;            // when floated all
-		 }
+		delayMicroseconds(10);
+	}
+	if(low_pin_count == 0){
+		return;            // when floated all
+	}
 
-		 if(low_pin_count > 0){
-			 jump();
-		 }
-
-
-
+	if(low_pin_count > 0){
+		jump();
+	}
 }
-
-
 
 int main(void)
 {
 
-//Prevent warnings
-(void)bootloader_version;
+	//Prevent warnings
+	(void)bootloader_version;
 
-  LL_APB1_GRP2_EnableClock(LL_APB1_GRP2_PERIPH_SYSCFG);
-  LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_PWR);
+	LL_APB1_GRP2_EnableClock(LL_APB1_GRP2_PERIPH_SYSCFG);
+	LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_PWR);
 
-  FLASH->ACR |= FLASH_ACR_PRFTBE;   // prefetch buffer enable
+	FLASH->ACR |= FLASH_ACR_PRFTBE;   // prefetch buffer enable
 
-  SystemClock_Config();
-  MX_TIM2_Init();
-  LL_TIM_EnableCounter(TIM2);
+	SystemClock_Config();
+	MX_TIM2_Init();
+	LL_TIM_EnableCounter(TIM2);
 
-   MX_GPIO_INPUT_INIT();     // init the pin with a pulldown
+	MX_GPIO_INPUT_INIT();     // init the pin with a pulldown
 
-   checkForSignal();
-   LL_GPIO_SetPinPull(input_port, input_pin, LL_GPIO_PULL_UP);
-  #ifdef USE_ADC_INPUT  // go right to application
-  jump();
+	checkForSignal();
+	LL_GPIO_SetPinPull(input_port, input_pin, LL_GPIO_PULL_UP);
 
+#ifdef USE_ADC_INPUT  // go right to application
+	jump();
 #endif
-  deviceInfo[3] = pin_code;
-  update_EEPROM();
 
-//  sendDeviceInfo();
-  while (1)
-  {
+	deviceInfo[3] = pin_code;
+	update_EEPROM();
 
-	  recieveBuffer();
-	  if (invalid_command > 100){
-		  jump();
-	  }
-
-  }
-
+	//sendDeviceInfo();
+	while (1)
+	{
+		recieveBuffer();
+		if (invalid_command > 100){
+			jump();
+		}
+	}
 }
 
 
@@ -620,16 +593,15 @@ void SystemClock_Config(void)
 {
   LL_FLASH_SetLatency(LL_FLASH_LATENCY_1);
 
-  if(LL_FLASH_GetLatency() != LL_FLASH_LATENCY_1)
-  {
-  Error_Handler();  
+  if(LL_FLASH_GetLatency() != LL_FLASH_LATENCY_1) {
+    Error_Handler();  
   }
   LL_RCC_HSI_Enable();
 
    /* Wait till HSI is ready */
   while(LL_RCC_HSI_IsReady() != 1)
   {
-    
+    // do nothing
   }
   LL_RCC_HSI_SetCalibTrimming(16);
   LL_RCC_PLL_ConfigDomain_SYS(LL_RCC_PLLSOURCE_HSI_DIV_2, LL_RCC_PLL_MUL_12);
@@ -638,7 +610,7 @@ void SystemClock_Config(void)
    /* Wait till PLL is ready */
   while(LL_RCC_PLL_IsReady() != 1)
   {
-    
+    // do nothing
   }
   LL_RCC_SetAHBPrescaler(LL_RCC_SYSCLK_DIV_1);
   LL_RCC_SetAPB1Prescaler(LL_RCC_APB1_DIV_1);
@@ -647,7 +619,7 @@ void SystemClock_Config(void)
    /* Wait till System clock is ready */
   while(LL_RCC_GetSysClkSource() != LL_RCC_SYS_CLKSOURCE_STATUS_PLL)
   {
-  
+    // do nothing
   }
   LL_Init1msTick(48000000);
   LL_SetSystemCoreClock(48000000);
@@ -656,48 +628,42 @@ void SystemClock_Config(void)
 
 static void MX_TIM2_Init(void)
 {
+	LL_TIM_InitTypeDef TIM_InitStruct = {0};
+
+	/* Peripheral clock enable */
+	LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_TIM2);
 
 
-
-  LL_TIM_InitTypeDef TIM_InitStruct = {0};
-
-  /* Peripheral clock enable */
-  LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_TIM2);
-
-
-  TIM_InitStruct.Prescaler = 47;
-  TIM_InitStruct.CounterMode = LL_TIM_COUNTERMODE_UP;
-  TIM_InitStruct.Autoreload = 0xFFFFFFFF;
-  TIM_InitStruct.ClockDivision = LL_TIM_CLOCKDIVISION_DIV1;
-  LL_TIM_Init(TIM2, &TIM_InitStruct);
-  LL_TIM_DisableARRPreload(TIM2);
-  LL_TIM_SetClockSource(TIM2, LL_TIM_CLOCKSOURCE_INTERNAL);
-  LL_TIM_SetTriggerOutput(TIM2, LL_TIM_TRGO_RESET);
-  LL_TIM_DisableMasterSlaveMode(TIM2);
-
+	TIM_InitStruct.Prescaler = 47;
+	TIM_InitStruct.CounterMode = LL_TIM_COUNTERMODE_UP;
+	TIM_InitStruct.Autoreload = 0xFFFFFFFF;
+	TIM_InitStruct.ClockDivision = LL_TIM_CLOCKDIVISION_DIV1;
+	LL_TIM_Init(TIM2, &TIM_InitStruct);
+	LL_TIM_DisableARRPreload(TIM2);
+	LL_TIM_SetClockSource(TIM2, LL_TIM_CLOCKSOURCE_INTERNAL);
+	LL_TIM_SetTriggerOutput(TIM2, LL_TIM_TRGO_RESET);
+	LL_TIM_DisableMasterSlaveMode(TIM2);
 }
 
 
 
 static void MX_GPIO_INPUT_INIT(void)
 {
+	LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
+	// LL_GPIO_ResetOutputPin(GPIOA, LL_GPIO_PIN_2);
+	/* GPIO Ports Clock Enable */
+	#ifdef USE_PB4
+	LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOB);
+	#endif
+	#ifdef USE_PA2
+	LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOA);
+	#endif
 
-  LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
- // LL_GPIO_ResetOutputPin(GPIOA, LL_GPIO_PIN_2);
-  /* GPIO Ports Clock Enable */
-#ifdef USE_PB4
-  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOB);
-#endif
-#ifdef USE_PA2
-  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOA);
-#endif
-
-
-  /**/
-  GPIO_InitStruct.Pin = input_pin;
-  GPIO_InitStruct.Mode = LL_GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = LL_GPIO_PULL_UP;
-  LL_GPIO_Init(input_port, &GPIO_InitStruct);
+	/**/
+	GPIO_InitStruct.Pin = input_pin;
+	GPIO_InitStruct.Mode = LL_GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = LL_GPIO_PULL_UP;
+	LL_GPIO_Init(input_port, &GPIO_InitStruct);
 
 }
 
@@ -721,7 +687,7 @@ void assert_failed(uint8_t *file, uint32_t line)
 { 
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
-     tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+	 tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
