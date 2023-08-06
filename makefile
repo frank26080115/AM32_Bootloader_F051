@@ -38,7 +38,22 @@ ARM_SDK_PREFIX ?= arm-none-eabi-
 # Targets by signal input pin:
 # PB4: iFlight
 # PA2: all others
-TARGETS := PA2 PB4
+TARGETS :=  PA2 PB4 \
+            PA2_LEDPB3 \
+            PA2_LEDPB4 \
+            PA2_LEDPA15 \
+            PA2_LEDPB3PB4 \
+            PA2_LEDPB3PA15 \
+            PA2_LEDPB4PA15 \
+            PB4_LEDPB3PA2 \
+            PB4_LEDPB3PA15 \
+            PB4_LEDPA2PA15 \
+            PB4_LEDPB3 \
+            PB4_LEDPA2 \
+            PB4_LEDPA15 \
+            PA2_LEDPB3PB4PA15 PB4_LEDPB3PA2PA15 \
+
+
 TARGET_PREFIX := BOOTLOADER_
 
 VERSION := $(shell grep "\#define BOOTLOADER_VERSION" Core/Src/main.c | awk '{print $$3}' )

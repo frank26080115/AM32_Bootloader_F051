@@ -1,12 +1,12 @@
 /* Bootloader */
 
-#define BOOTLOADER_VERSION 10
-
-#define USE_PA2
+#define BOOTLOADER_VERSION 11
 
 /* Includes ------------------------------------------------------------------*/
 #include <stdbool.h>
 #include "main.h"
+
+#include "rgbled.h"
 
 //#define USE_ADC_INPUT      // will go right to application and ignore eeprom
 
@@ -41,19 +41,26 @@ typedef void (*pFunction)(void);
 #define CMD_SET_ADDRESS     0xFF
 #define CMD_SET_BUFFER      0xFE
 
+#if defined(USE_PA2_LEDPA15) || defined(USE_PA2_LEDPB3) || defined(USE_PA2_LEDPB4) || defined(USE_PA2_LEDPB3PB4) || defined(USE_PA2_LEDPB4PB3) || defined(USE_PA2_LEDPB3PA15) || defined(USE_PA2_LEDPB4PA15) || defined(USE_PA2_LEDPB3PB4PA15) || defined(USE_PA2_LEDPB4PB3PA15)
+#define USE_PA2
+#define USE_LED
+#elif defined(USE_PB4_LEDPA15) || defined(USE_PB4_LEDPB3) || defined(USE_PB4_LEDPA2) || defined(USE_PB4_LEDPB3PA2) || defined(USE_PB4_LEDPA2PB3) || defined(USE_PB4_LEDPB3PA15) || defined(USE_PB4_LEDPA2PA15) || defined(USE_PB4_LEDPB3PA2PA15) || defined(USE_PB4_LEDPA2PB3PA15)
+#define USE_PB4
+#define USE_LED
+#endif
 
-#ifdef USE_PA2
+#if defined(USE_PA2)
 #define input_pin     LL_GPIO_PIN_2
 #define input_port       GPIOA
 #define PIN_NUMBER       2
 #define PORT_LETTER      0
-#endif
-
-#ifdef USE_PB4
+#elif defined(USE_PB4)
 #define input_pin       LL_GPIO_PIN_4
 #define input_port        GPIOB
 #define PIN_NUMBER        4
 #define PORT_LETTER       1
+#else
+#error
 #endif
 
 uint16_t low_pin_count = 0;
@@ -139,10 +146,12 @@ void jump(){
 		return;
 	}
 #endif
-    JumpToApplication = (pFunction) JumpAddress;
-  __set_MSP(*(__IO uint32_t*) APPLICATION_ADDRESS);
-   JumpToApplication();
-
+#ifdef USE_LED
+	led_off();
+#endif
+	JumpToApplication = (pFunction) JumpAddress;
+	__set_MSP(*(__IO uint32_t*) APPLICATION_ADDRESS);
+	JumpToApplication();
 }
 
 
@@ -423,7 +432,9 @@ while(!(input_port->IDR & input_pin)){ // wait for rx to go high
 	}
 }
 while((input_port->IDR & input_pin)){   // wait for it go go low
-	if(TIM2->CNT > 250 && messagereceived){
+	if(TIM2->CNT > 1000 && messagereceived){
+		// timeout changed from 250 to 1000
+		// because some USB interfaces have small buffers and the pause between buffers causes a timeout
 		return;
 	}
 }
@@ -482,8 +493,8 @@ void sendString(uint8_t *data, int len){
 
 	for(int i = 0; i < len; i++){
 		serialwriteChar(data[i]);
-		delayMicroseconds(BITTIME);
-
+		delayMicroseconds(BITTIME * 3);
+		// *3 added, some bit-bang implementations of UART needs a little extra time
 	}
 }
 
@@ -495,30 +506,27 @@ void recieveBuffer(){
 	memset(rxBuffer, 0, sizeof(rxBuffer));
 
 	for(int i = 0; i < sizeof(rxBuffer); i++){
-	serialreadChar();
+		serialreadChar();
 
-
-	if(incoming_payload_no_command){
-		if(count == payload_buffer_size+2){
-
-			break;
+		if(incoming_payload_no_command){
+			rxBuffer[i] = rxbyte;
+			count++;
+            if(count == payload_buffer_size+2){
+				break;
+			}
+		}else{
+			if(TIM2->CNT > 1000){
+				count = 0;
+				break;
+			}else{
+				rxBuffer[i] = rxbyte;
+				if(i == 257){
+					invalid_command+=20;       // needs one hundred to trigger a jump but will be reset on next set address commmand
+				}
+			}
 		}
-		rxBuffer[i] = rxbyte;
-		count++;
-	}else{
-		if(TIM2->CNT > 250){
-		count = 0;
-		break;
-	    }else{
-		rxBuffer[i] = rxbyte;
-		if(i == 257){
-			invalid_command+=20;       // needs one hundred to trigger a jump but will be reset on next set address commmand
-
-		}
 	}
-	}
-	}
-		decodeInput();
+	decodeInput();
 }
 
 void update_EEPROM(){
@@ -601,6 +609,10 @@ int main(void)
 #endif
   deviceInfo[3] = pin_code;
   update_EEPROM();
+
+#ifdef USE_LED
+	led_init();
+#endif
 
 //  sendDeviceInfo();
   while (1)
@@ -685,13 +697,9 @@ static void MX_GPIO_INPUT_INIT(void)
   LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
  // LL_GPIO_ResetOutputPin(GPIOA, LL_GPIO_PIN_2);
   /* GPIO Ports Clock Enable */
-#ifdef USE_PB4
-  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOB);
-#endif
-#ifdef USE_PA2
-  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOA);
-#endif
 
+  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOA);
+  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOB);
 
   /**/
   GPIO_InitStruct.Pin = input_pin;
